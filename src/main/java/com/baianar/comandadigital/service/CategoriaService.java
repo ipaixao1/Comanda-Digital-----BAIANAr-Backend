@@ -51,6 +51,9 @@ public class CategoriaService {
         if (request.ordem() != null) {
             categoria.setOrdem(request.ordem());
         }
+        if (request.status() != null) {
+            categoria.setStatus(request.status());
+       }
         return CategoriaResponse.from(categoriaRepository.save(categoria));
     }
 

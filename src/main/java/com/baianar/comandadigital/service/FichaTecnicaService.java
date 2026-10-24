@@ -59,6 +59,12 @@ public class FichaTecnicaService {
             Ingrediente ingrediente = ingredienteRepository.findById(itemReq.ingredienteId())
                     .orElseThrow(() -> new ResourceNotFoundException("Ingrediente não encontrado: " + itemReq.ingredienteId()));
 
+                    if ("INATIVO".equals(ingrediente.getStatus().name())) {
+    throw new IllegalArgumentException(
+            "Não é permitido adicionar ingrediente inativo à ficha técnica: " + ingrediente.getNome()
+    );
+}
+
             FichaTecnicaItem item = FichaTecnicaItem.builder()
                     .fichaTecnica(ficha)
                     .ingrediente(ingrediente)
@@ -71,6 +77,35 @@ public class FichaTecnicaService {
 
         FichaTecnica salva = fichaTecnicaRepository.save(ficha);
         return toResponse(salva);
+    }
+
+        @Transactional(readOnly = true)
+    public FichaTecnicaResponse simularCusto(Prato prato, FichaTecnicaRequest request) {
+        FichaTecnica ficha = FichaTecnica.builder()
+                .prato(prato)
+                .rendimento(request.rendimento())
+                .modoPreparo(request.modoPreparo())
+                .build();
+
+        for (FichaTecnicaItemRequest itemReq : request.itens()) {
+            Ingrediente ingrediente = ingredienteRepository
+                    .findById(itemReq.ingredienteId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Ingrediente não encontrado: " + itemReq.ingredienteId()
+                    ));
+
+            FichaTecnicaItem item = FichaTecnicaItem.builder()
+                    .fichaTecnica(ficha)
+                    .ingrediente(ingrediente)
+                    .quantidade(itemReq.quantidade())
+                    .unidade(UnidadeMedida.valueOf(itemReq.unidade().toUpperCase()))
+                    .fatorCorrecao(itemReq.fatorCorrecao())
+                    .build();
+
+            ficha.getItens().add(item);
+        }
+
+        return toResponse(ficha);
     }
 
     public CustoResponse calcularCusto(FichaTecnica ficha) {
