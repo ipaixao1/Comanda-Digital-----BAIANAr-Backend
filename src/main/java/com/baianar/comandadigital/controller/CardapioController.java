@@ -1,7 +1,9 @@
 package com.baianar.comandadigital.controller;
 
+import com.baianar.comandadigital.dto.response.FaixaEntregaResponse;
 import com.baianar.comandadigital.dto.response.PageResponse;
 import com.baianar.comandadigital.dto.response.PratoPublicoResponse;
+import com.baianar.comandadigital.service.EstimativaLojaService;
 import com.baianar.comandadigital.service.PratoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 public class CardapioController {
 
     private final PratoService pratoService;
+    private final EstimativaLojaService estimativaLojaService;
 
     @GetMapping
     @Operation(summary = "Lista pratos ativos (público)", description = "Filtro opcional por categoria via ?categoriaId=")
@@ -30,6 +33,13 @@ public class CardapioController {
             @RequestParam(required = false) Long categoriaId,
             Pageable pageable) {
         return ResponseEntity.ok(PageResponse.from(pratoService.listarCardapioPublico(categoriaId, pageable)));
+    }
+
+    @GetMapping("/estimativa-entrega")
+    @Operation(summary = "Faixa de tempo de entrega da loja (público)",
+            description = "Ex.: 20–30 min. Calculada a partir do tempo de preparo dos pratos ativos + deslocamento.")
+    public ResponseEntity<FaixaEntregaResponse> estimativaEntrega() {
+        return ResponseEntity.ok(estimativaLojaService.faixaEntrega());
     }
 
     @GetMapping("/{id}")
