@@ -36,6 +36,10 @@ public class Fornecedor {
     @Column(length = 150)
     private String email;
 
+    /** RF-021: categorias de produtos que o fornecedor vende (texto livre separado por vírgula). */
+    @Column(length = 200)
+    private String categorias;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
