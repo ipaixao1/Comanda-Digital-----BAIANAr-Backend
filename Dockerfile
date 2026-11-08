@@ -12,4 +12,4 @@ WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 # A porta vem da variável PORT (Railway/Render definem automaticamente); padrão 8080.
 EXPOSE 8080
-ENTRYPOINT ["java", "-Xmx400m", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:+UseSerialGC", "-XX:TieredStopAtLevel=1", "-XX:MaxRAMPercentage=65", "-XX:MaxMetaspaceSize=128m", "-Xss512k", "-jar", "app.jar"]
