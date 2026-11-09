@@ -31,4 +31,13 @@ public interface EstoqueMovimentacaoRepository extends JpaRepository<EstoqueMovi
             WHERE m.ingrediente.id = :ingredienteId
             """)
     BigDecimal saldoPorIngrediente(@Param("ingredienteId") Long ingredienteId);
+
+    /** Saldo de todos os ingredientes numa única consulta: [ingredienteId, saldo]. */
+    @Query("""
+            SELECT m.ingrediente.id,
+                   COALESCE(SUM(CASE WHEN m.tipo = 'SAIDA' THEN -m.quantidade ELSE m.quantidade END), 0)
+            FROM EstoqueMovimentacao m
+            GROUP BY m.ingrediente.id
+            """)
+    java.util.List<Object[]> saldosAgrupados();
 }
