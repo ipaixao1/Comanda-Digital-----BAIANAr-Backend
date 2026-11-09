@@ -43,10 +43,8 @@ exception/          @ControllerAdvice + exceções de negócio
 3. `mvn spring-boot:run` — o Flyway cria as tabelas e popula o seed automaticamente no primeiro start.
 4. Swagger: http://localhost:8080/swagger-ui.html
 
-**⚠️ Não consegui rodar `mvn compile` neste ambiente** (o sandbox de execução bloqueia acesso ao
-Maven Central por política de rede). Revisei o código linha a linha, mas **rode `mvn clean compile`
-(ou `mvn spring-boot:run`) na sua máquina antes de subir/commitar**, para pegar qualquer erro de
-compilação que eu não tenha visto.
+Requisitos locais: **Java 17** e **Maven 3.9+**. Crie um `src/main/resources/application-local.yml` (já está no `.gitignore`,
+nunca vai para o Git) com a senha do seu MySQL local e rode com `mvn spring-boot:run -Dspring-boot.run.profiles=local`.
 
 ## Credenciais de seed (Flyway `V2__seed_data.sql`)
 
@@ -64,40 +62,56 @@ técnicas de todos, **estoque inicial** de todos os ingredientes (sem isso a val
 qualquer pedido) e 2 pedidos de exemplo. Se você já subiu uma versão anterior do backend, apague o banco
 antes (`DROP DATABASE comanda_digital;`) — o Flyway recria tudo no próximo start.
 
-## Deploy (Railway)
+## Produção (deploy)
 
-| Camada | Onde | Observação |
+| Camada | Onde | URL / observação |
 |---|---|---|
-| Back-end | Railway (build pelo `Dockerfile` desta pasta) | Deploy from GitHub repo |
-| Banco | Railway (plugin MySQL, mesmo projeto) | nunca subir o banco "dentro" do back |
-| Front-end | Vercel (já configurado em `vercel.json`) | `environment.prod.ts` deve apontar para a URL do back |
+| Front-end (Angular) | Vercel | https://comanda-digital-baian-ar.vercel.app |
+| Back-end (Spring Boot, `Dockerfile`) | Render — plano gratuito | https://baianar-api.onrender.com |
+| Swagger | Render | https://baianar-api.onrender.com/swagger-ui.html |
+| Banco de dados | TiDB Cloud Starter (compatível com MySQL 8) | acesso só pelo back-end, via variáveis de ambiente |
 
-Passo a passo:
+> ⏱️ **O back-end gratuito "dorme" após ~15 min sem requisições.** A primeira chamada depois disso leva até ~1 min.
+> Antes de uma demonstração, abra o Swagger e aguarde carregar. Uma reinicialização completa leva ~2–3 min
+> (a JVM roda com flags leves no `Dockerfile` por causa de 0,1 CPU / 512 MB).
 
-1. Railway → **New Project** → **Deploy from GitHub repo** → escolha este repositório (o `Dockerfile` é detectado sozinho).
-2. No mesmo projeto: **+ New** → **Database** → **MySQL**.
-3. No serviço do back-end → **Variables** → adicione referências ao MySQL (botão *Add Reference*):
-   `MYSQLHOST`, `MYSQLPORT`, `MYSQLDATABASE`, `MYSQLUSER`, `MYSQLPASSWORD`. O `application.yml` já monta a URL
-   JDBC a partir delas — não precisa converter nada à mão.
-4. Defina também `JWT_SECRET` (string longa e aleatória) e `CORS_ALLOWED_ORIGINS` (URL do front no Vercel,
-   ex.: `https://baianar.vercel.app`; separe várias por vírgula, sem espaços e sem barra final).
-5. **Settings → Networking → Generate Domain**. Essa URL + `/api` é o `apiUrl` do `environment.prod.ts` do front.
-6. Confira em `https://SEU-DOMINIO.up.railway.app/swagger-ui.html`.
+**Variáveis de ambiente no Render** (nenhum segredo fica no repositório):
 
-A porta é lida da variável `PORT`, que o Railway injeta sozinho.
+| Variável | Exemplo / descrição |
+|---|---|
+| `SPRING_DATASOURCE_URL` | `jdbc:mysql://<host>:4000/comanda_digital?sslMode=VERIFY_IDENTITY&createDatabaseIfNotExist=true&serverTimezone=UTC` |
+| `SPRING_DATASOURCE_USERNAME` | usuário do TiDB |
+| `SPRING_DATASOURCE_PASSWORD` | senha do TiDB (gerada no console, só aparece uma vez) |
+| `JWT_SECRET` | string aleatória longa (use o botão *Generate* do Render) |
+| `CORS_ALLOWED_ORIGINS` | URL do front, **sem barra final**; várias separadas por vírgula, sem espaços |
 
-## Divisão do trabalho (dupla)
+Passo a passo para refazer o deploy do zero:
 
-- **Claude**: esqueleto do projeto, migrations, segurança/JWT/RBAC, e os módulos administrativos —
-  cardápio/ficha técnica/custo (RF-009 a RF-014), estoque (RF-027 a RF-033), fornecedores/compras
-  (RF-021 a RF-026), pedidos do lado cozinha/admin com baixa automática e estorno (RF-015 a RF-020),
-  dashboard (RF-034 a RF-037) e usuários internos (RF-041).
-- **Isabel**: jornada do cliente — ela é quem conhece o front mobile em detalhe, então o ponto de
-  partida funcional está em `controller/PedidoClienteController.java` (checkout, histórico,
-  acompanhamento de status) e `controller/AuthController.java` + `controller/CardapioController.java`
-  (login/cadastro/cardápio público, infraestrutura compartilhada). Esses três arquivos estão
-  comentados indicando que são dela para revisar/ajustar — e depois ligar ao front Angular
-  (interceptor JWT, telas de carrinho/checkout/status/histórico).
+1. **Banco:** console do TiDB Cloud → criar instância **Starter** (gratuita, sem cartão) → *Connect* → *General* → gerar a senha → criar o banco `comanda_digital`.
+2. **Back-end:** Render → **New → Web Service** → repositório do back-end → *Language*: **Docker** → *Instance Type*: **Free** →
+   cadastrar as variáveis acima → *Health Check Path*: `/swagger-ui.html`. O Flyway cria as tabelas e o seed no primeiro start.
+3. **Front-end:** Vercel → importar o repositório do front (o `vercel.json` já define `dist/baianar/browser` e o rewrite SPA).
+   O `environment.prod.ts` do front aponta para `https://baianar-api.onrender.com/api`.
+4. Liberar a URL do front em `CORS_ALLOWED_ORIGINS` no Render (o serviço reinicia sozinho).
+
+A porta é lida da variável `PORT`, que o Render injeta sozinho. O deploy acompanha a branch configurada em *Settings → Build & Deploy*.
+
+## Modelo de dados (DER)
+
+![DER do banco](docs/DER-BAIANAr.png)
+
+O diagrama acima reflete as migrations `V1` a `V5` (`src/main/resources/db/migration`).
+Cores: azul = usuários · amarelo = cardápio e ficha técnica · verde = estoque · vermelho = fornecedores e compras · roxo = pedidos.
+
+## Módulos do projeto (equipe de 5)
+
+| Pessoa | Módulo |
+|---|---|
+| P1 | Pedidos e jornada do cliente (`PedidoClienteController`, checkout, histórico e status) |
+| P2 | Cardápio e ficha técnica (RF-009 a RF-014) |
+| P3 | Estoque (RF-027 a RF-033) |
+| P4 | Fornecedores e compras (RF-021 a RF-026) |
+| P5 | Autenticação/JWT/RBAC, usuários internos (RF-041), dashboard (RF-034 a RF-037), integração final e deploy |
 
 ## Limitações conhecidas (para não travar o Sprint Final)
 
