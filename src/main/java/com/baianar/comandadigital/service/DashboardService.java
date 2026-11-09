@@ -49,7 +49,7 @@ public class DashboardService {
         LocalDateTime dataFim = fim != null ? fim : LocalDateTime.now();
 
         return pedidoRepository.topPratosVendidos(dataInicio, dataFim, PageRequest.of(0, limite)).stream()
-                .map(row -> new TopPratoResponse((Long) row[0], (String) row[1], ((Number) row[2]).longValue()))
+                .map(row -> new TopPratoResponse(((Number) row[0]).longValue(), (String) row[1], ((Number) row[2]).longValue()))
                 .toList();
     }
 
@@ -64,8 +64,16 @@ public class DashboardService {
         LocalDateTime dataFim = fim != null ? fim : LocalDateTime.now();
 
         return pedidoRepository.vendasPorPeriodo(dataInicio, dataFim).stream()
-                .map(row -> new VendaPeriodoResponse(((java.sql.Date) row[0]).toLocalDate(), (BigDecimal) row[1]))
+                .map(row -> new VendaPeriodoResponse(paraLocalDate(row[0]), new BigDecimal(row[1].toString())))
                 .toList();
+    }
+
+    /** O tipo devolvido por DATE() varia conforme o driver/Hibernate: aceita java.sql.Date, LocalDate ou texto AAAA-MM-DD. */
+    private static LocalDate paraLocalDate(Object valor) {
+        if (valor instanceof LocalDate d) return d;
+        if (valor instanceof java.sql.Date d) return d.toLocalDate();
+        if (valor instanceof java.util.Date d) return new java.sql.Date(d.getTime()).toLocalDate();
+        return LocalDate.parse(valor.toString().substring(0, 10));
     }
 
     private BigDecimal foodCostMedioAtivos() {
