@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springdoc.core.annotations.ParameterObject;
 
 /** RF-027: CRUD de ingredientes. Apenas ADMIN/GERENTE. */
 @RestController
@@ -24,9 +25,9 @@ public class IngredienteController {
     private final IngredienteService ingredienteService;
 
     @GetMapping
-    public ResponseEntity<PageResponse<IngredienteResponse>> listar(Pageable pageable) {
+    public ResponseEntity<PageResponse<IngredienteResponse>> listar(@ParameterObject Pageable pageable) {
         return ResponseEntity.ok(PageResponse.from(ingredienteService.listar(pageable)));
-    }
+}
 
     @GetMapping("/{id}")
     public ResponseEntity<IngredienteResponse> buscar(@PathVariable Long id) {

@@ -9,6 +9,7 @@ import com.baianar.comandadigital.entity.Pedido;
 import com.baianar.comandadigital.entity.PedidoCompra;
 import com.baianar.comandadigital.entity.Usuario;
 import com.baianar.comandadigital.entity.enums.MotivoMovimentacao;
+import com.baianar.comandadigital.entity.enums.StatusIngrediente;
 import com.baianar.comandadigital.entity.enums.TipoMovimentacao;
 import com.baianar.comandadigital.exception.BusinessException;
 import com.baianar.comandadigital.exception.ResourceNotFoundException;
@@ -23,7 +24,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * RF-027 a RF-033: controle de estoque.
@@ -38,15 +43,28 @@ public class EstoqueService {
     private final EstoqueMovimentacaoRepository movimentacaoRepository;
     private final UsuarioRepository usuarioRepository;
 
+    /** RF-030: motivos aceitos na saída manual (perdas). */
+    private static final Set<MotivoMovimentacao> MOTIVOS_SAIDA_MANUAL =
+            EnumSet.of(MotivoMovimentacao.DESPERDICIO, MotivoMovimentacao.VENCIMENTO,
+                       MotivoMovimentacao.QUEBRA, MotivoMovimentacao.USO_INTERNO);
+
+    /** RF-028: entrada manual é sempre um ajuste (a entrada de compra é automática). */
+    private static final Set<MotivoMovimentacao> MOTIVOS_ENTRADA_MANUAL = EnumSet.of(MotivoMovimentacao.AJUSTE);
+
     public BigDecimal saldoAtual(Long ingredienteId) {
         BigDecimal saldo = movimentacaoRepository.saldoPorIngrediente(ingredienteId);
         return saldo != null ? saldo : BigDecimal.ZERO;
     }
 
-    /** RF-031: saldo em tempo real de todos os ingredientes. */
+    /** RF-031: saldo em tempo real dos ingredientes ativos (uma consulta só para todos os saldos). */
+    @Transactional(readOnly = true)
     public List<EstoqueSaldoResponse> saldoGeral() {
-        return ingredienteRepository.findAll().stream()
-                .map(this::toSaldoResponse)
+        Map<Long, BigDecimal> saldos = new HashMap<>();
+        for (Object[] linha : movimentacaoRepository.saldosAgrupados()) {
+            saldos.put(((Number) linha[0]).longValue(), new BigDecimal(linha[1].toString()));
+        }
+        return ingredienteRepository.findByStatusOrderByNomeAsc(StatusIngrediente.ATIVO).stream()
+                .map(i -> toSaldoResponse(i, saldos.getOrDefault(i.getId(), BigDecimal.ZERO)))
                 .toList();
     }
 
@@ -82,12 +100,20 @@ public class EstoqueService {
         Ingrediente ingrediente = ingredienteRepository.findById(request.ingredienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Ingrediente não encontrado: " + request.ingredienteId()));
 
-        TipoMovimentacao tipo = TipoMovimentacao.valueOf(request.tipo().toUpperCase());
+        TipoMovimentacao tipo = lerEnum(TipoMovimentacao.class, request.tipo(),
+                "Tipo inválido. Use ENTRADA ou SAIDA.");
         if (tipo != TipoMovimentacao.ENTRADA && tipo != TipoMovimentacao.SAIDA) {
             throw new BusinessException("Movimentação manual aceita apenas os tipos ENTRADA ou SAIDA.");
         }
 
-        MotivoMovimentacao motivo = MotivoMovimentacao.valueOf(request.motivo().toUpperCase());
+        MotivoMovimentacao motivo = lerEnum(MotivoMovimentacao.class, request.motivo(),
+                "Motivo inválido. Valores aceitos: " + java.util.Arrays.toString(MotivoMovimentacao.values()));
+        if (tipo == TipoMovimentacao.SAIDA && !MOTIVOS_SAIDA_MANUAL.contains(motivo)) {
+            throw new BusinessException("Motivo inválido para saída manual (RF-030). Use: DESPERDICIO, VENCIMENTO, QUEBRA ou USO_INTERNO.");
+        }
+        if (tipo == TipoMovimentacao.ENTRADA && !MOTIVOS_ENTRADA_MANUAL.contains(motivo)) {
+            throw new BusinessException("Entrada manual deve usar o motivo AJUSTE. Entradas de compra são geradas ao receber o pedido de compra.");
+        }
 
         if (tipo == TipoMovimentacao.SAIDA) {
             BigDecimal saldoAtual = saldoAtual(ingrediente.getId());
@@ -133,12 +159,20 @@ public class EstoqueService {
         return movimentacaoRepository.save(movimentacao);
     }
 
-    private EstoqueSaldoResponse toSaldoResponse(Ingrediente ingrediente) {
-        BigDecimal saldo = saldoAtual(ingrediente.getId());
+    private EstoqueSaldoResponse toSaldoResponse(Ingrediente ingrediente, BigDecimal saldo) {
         boolean abaixoMinimo = saldo.compareTo(ingrediente.getEstoqueMinimo()) < 0;
         return new EstoqueSaldoResponse(
                 ingrediente.getId(), ingrediente.getNome(), ingrediente.getSku(),
                 ingrediente.getUnidadePadrao().name(), saldo, ingrediente.getEstoqueMinimo(), abaixoMinimo
         );
+    }
+
+    /** Converte texto em enum; valor inválido vira 400 com mensagem clara (em vez de erro 500). */
+    private static <E extends Enum<E>> E lerEnum(Class<E> tipo, String valor, String mensagem) {
+        try {
+            return Enum.valueOf(tipo, valor.trim().toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new IllegalArgumentException(mensagem);
+        }
     }
 }

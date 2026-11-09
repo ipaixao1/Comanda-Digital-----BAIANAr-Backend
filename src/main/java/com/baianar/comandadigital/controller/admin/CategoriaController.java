@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springdoc.core.annotations.ParameterObject;
 
 /** RF-009 — CRUD de categorias. Apenas ADMIN/GERENTE (RF-043). */
 @RestController
@@ -26,9 +27,9 @@ public class CategoriaController {
 
     @GetMapping
     @Operation(summary = "Lista categorias (paginado)")
-    public ResponseEntity<PageResponse<CategoriaResponse>> listar(Pageable pageable) {
+    public ResponseEntity<PageResponse<CategoriaResponse>> listar(@ParameterObject Pageable pageable) {
         return ResponseEntity.ok(PageResponse.from(categoriaService.listar(pageable)));
-    }
+}
 
     @GetMapping("/{id}")
     public ResponseEntity<CategoriaResponse> buscar(@PathVariable Long id) {

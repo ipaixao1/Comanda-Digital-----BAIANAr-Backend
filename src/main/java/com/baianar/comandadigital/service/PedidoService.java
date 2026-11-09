@@ -102,7 +102,7 @@ public class PedidoService {
         if (!pedido.getCliente().getId().equals(clienteId)) {
             throw new ForbiddenOperationException("Este pedido não pertence ao cliente autenticado.");
         }
-        return new PedidoStatusResponse(pedido.getId(), pedido.getStatus().name());
+        return PedidoStatusResponse.from(pedido);
     }
 
     // ---------------------------------------------------------------------

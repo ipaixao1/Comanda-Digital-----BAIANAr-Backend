@@ -6,6 +6,7 @@ public enum MotivoMovimentacao {
     VENDA,
     DESPERDICIO,
     VENCIMENTO,
+    QUEBRA,
     AJUSTE,
     USO_INTERNO,
     ESTORNO

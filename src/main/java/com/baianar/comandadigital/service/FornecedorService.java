@@ -60,6 +60,7 @@ public class FornecedorService {
                 .cnpj(request.cnpj())
                 .telefone(request.telefone())
                 .email(request.email())
+                .categorias(limpar(request.categorias()))
                 .status(StatusFornecedor.ATIVO)
                 .build();
 
@@ -83,8 +84,13 @@ public class FornecedorService {
         fornecedor.setRazaoSocial(request.razaoSocial());
         fornecedor.setTelefone(request.telefone());
         fornecedor.setEmail(request.email());
+        fornecedor.setCategorias(limpar(request.categorias()));
 
         return FornecedorResponse.from(fornecedorRepository.save(fornecedor));
+    }
+
+    private static String limpar(String texto) {
+        return texto == null || texto.isBlank() ? null : texto.trim();
     }
 
     /** RN06: exclusão lógica. */
