@@ -104,6 +104,17 @@ public class PratoService {
         return PratoResponse.from(pratoRepository.save(prato));
     }
 
+    /** Cozinha: alterna ATIVO <-> PAUSADO. Prato INATIVO (excluido) nao e mexido por aqui. */
+    @Transactional
+    public PratoResponse alterarDisponibilidade(Long id, boolean disponivel) {
+        Prato prato = buscarEntidade(id);
+        if (prato.getStatus() == StatusPrato.INATIVO) {
+            throw new BusinessException("Prato inativo nao pode ser pausado ou reativado pela cozinha.");
+        }
+        aplicarMudancaStatus(prato, disponivel ? StatusPrato.ATIVO : StatusPrato.PAUSADO);
+        return PratoResponse.from(pratoRepository.save(prato));
+    }
+
     private void aplicarMudancaStatus(Prato prato, StatusPrato novoStatus) {
         if (novoStatus == StatusPrato.ATIVO) {
             FichaTecnica ficha = fichaTecnicaRepository.findByPratoId(prato.getId()).orElse(null);
