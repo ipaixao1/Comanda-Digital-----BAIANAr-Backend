@@ -27,6 +27,7 @@ public class EstoqueController {
 
     private final EstoqueService estoqueService;
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'GERENTE', 'COZINHEIRO')")
     @GetMapping("/saldo")
     @Operation(summary = "RF-031: saldo atual de todos os ingredientes")
     public ResponseEntity<List<EstoqueSaldoResponse>> saldo() {

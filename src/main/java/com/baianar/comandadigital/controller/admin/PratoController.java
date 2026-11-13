@@ -2,6 +2,7 @@ package com.baianar.comandadigital.controller.admin;
 
 import java.math.BigDecimal;
 import com.baianar.comandadigital.dto.request.FichaTecnicaRequest;
+import com.baianar.comandadigital.dto.request.DisponibilidadePratoRequest;
 import com.baianar.comandadigital.dto.request.PratoRequest;
 import com.baianar.comandadigital.dto.response.CustoResponse;
 import com.baianar.comandadigital.dto.response.FichaTecnicaResponse;
@@ -33,6 +34,7 @@ public class PratoController {
     private final FichaTecnicaService fichaTecnicaService;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'GERENTE', 'COZINHEIRO')")
     public ResponseEntity<PageResponse<PratoResponse>> listar(@ParameterObject Pageable pageable) {
         return ResponseEntity.ok(PageResponse.from(pratoService.listar(pageable)));
     }
@@ -50,6 +52,14 @@ public class PratoController {
     @PutMapping("/{id}")
     public ResponseEntity<PratoResponse> atualizar(@PathVariable Long id, @Valid @RequestBody PratoRequest request) {
         return ResponseEntity.ok(pratoService.atualizar(id, request));
+    }
+
+    @PatchMapping("/{id}/disponibilidade")
+    @PreAuthorize("hasAnyRole('ADMIN', 'GERENTE', 'COZINHEIRO')")
+    @Operation(summary = "Cozinha: pausa ou reativa um prato (ATIVO <-> PAUSADO)")
+    public ResponseEntity<PratoResponse> alterarDisponibilidade(@PathVariable Long id,
+            @Valid @RequestBody DisponibilidadePratoRequest request) {
+        return ResponseEntity.ok(pratoService.alterarDisponibilidade(id, request.disponivel()));
     }
 
     @DeleteMapping("/{id}")
